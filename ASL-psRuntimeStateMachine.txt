@@ -1,0 +1,74 @@
+{
+  "Comment": "psRuntimeExceptionAPI using retry and catch to handle API responses",
+  "StartAt": "Invoke Runtime API",
+  "States": {
+    "Invoke Runtime API": {
+      "Type": "Task",
+      "Resource": "arn:aws:lambda:us-west-2:902148494072:function:psRuntimeExceptionAPI",
+      "Next": "OK",
+      "Comment": "Service overloaded with too many requests for API exception, resubmit the failed request in a rate-limiting fashion.",
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "TooManyRequestsException"
+          ],
+          "IntervalSeconds": 1,
+          "MaxAttempts": 3
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "TooManyRequestsException"
+          ],
+          "Next": "Wait and Try Again"
+        },
+        {
+          "ErrorEquals": [
+            "ResourceNotReadyException"
+          ],
+          "Next": "Wait and Try Again"
+        },
+        {
+          "ErrorEquals": [
+            "ServiceException"
+          ],
+          "Next": "Server Unavailable"
+        },
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "Next": "Catch All"
+        }
+      ]
+    },
+    "Wait and Try Again": {
+      "Type": "Wait",
+      "Seconds": 5,
+      "Next": "Refresh Environment"
+    },
+    "Server Unavailable": {
+      "Type": "Fail",
+      "Error": "ServerUnavailable",
+      "Cause": "The server is currently unable to handle the request."
+    },
+    "Catch All": {
+      "Type": "Fail",
+      "Cause": "Unknown error!",
+      "Error": "An unknown error has occurred. Issue has been reported for analysis"
+    },
+    "Refresh Environment": {
+      "Type": "Pass",
+      "Result": {
+        "statuscode": "200"
+      },
+      "Next": "Invoke Runtime API"
+    },
+    "OK": {
+      "Type": "Pass",
+      "Result": "The request has been processed successfully.",
+      "End": true
+    }
+  }
+}
